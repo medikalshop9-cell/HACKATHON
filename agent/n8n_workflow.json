@@ -29,7 +29,7 @@
       "name": "Session Memory",
       "type": "@n8n/n8n-nodes-langchain.memoryBufferWindow",
       "typeVersion": 1.3,
-      "position": [460, 520],
+      "position": [460, 540],
       "parameters": { "contextWindowLength": 10 }
     },
     {
@@ -40,8 +40,8 @@
       "position": [700, 300],
       "parameters": {
         "agentType": "conversationalAgent",
-        "text": "=Assess the default risk for this borrower and return ONLY a JSON object - no markdown, no prose.\n\nBorrower Profile:\n{{ JSON.stringify($json, null, 2) }}",
-        "systemMessage": "You are a credit risk analyst assistant. Assess the default risk of a credit card client based on their profile.\n\nDATASET CONTEXT:\n- Taiwan credit card clients (Apr-Sep 2005), currency: New Taiwan Dollar (NTD)\n- Task: estimate probability of defaulting on next month's payment\n\nVARIABLE GUIDE:\n- LIMIT_BAL: total credit limit in NTD\n- PAY_0 (Sep) to PAY_6 (Apr): repayment status. -1=paid duly, 0=revolving credit, 1-8=months delayed\n- BILL_AMT1-6: monthly statement balances in NTD\n- PAY_AMT1-6: actual monthly payments in NTD\n- SEX: 1=Male, 2=Female | EDUCATION: 1=Grad, 2=Uni, 3=HS, 4=Other | MARRIAGE: 1=Married, 2=Single, 3=Other\n\nDERIVED SIGNALS (pre-computed):\n- bill_to_limit_ratio: >0.8 = near credit exhaustion\n- payment_coverage_ratio: <0.05 = near-zero repayment\n- consecutive_delays: months with delay >= 1\n- bill_trend: positive = growing debt\n\nKEY RISK SIGNALS:\n1. consecutive_delays >= 2 -> HIGH risk\n2. bill_to_limit_ratio > 0.8 -> credit exhaustion\n3. payment_coverage_ratio < 0.05 -> minimal repayment\n4. bill_trend > 0 AND payment_coverage_ratio < 0.1 -> debt spiral\n5. PAY_0 >= 2 alone -> strong signal\n\nRISK THRESHOLDS: LOW < 0.30 | MEDIUM 0.30-0.60 | HIGH > 0.60\n\nReturn ONLY valid JSON:\n{\"risk_level\":\"LOW\",\"default_probability\":0.18,\"key_signals\":[\"signal 1\"],\"recommendation\":\"One sentence action.\"}",
+        "text": "=Analyze this credit card client and return ONLY a JSON object (no markdown, no prose).\n\nClient Profile:\n{{ JSON.stringify($json, null, 2) }}",
+        "systemMessage": "You are the Credit Assessment Agent for Africa Business School (UM6P Hackathon 2026).\n\nYou simulate the output of a trained Random Forest classifier (AUC=0.762, F1=0.531, threshold=0.35) built on the UCI Taiwan Credit Card Default dataset (30,000 clients, Apr-Sep 2005, NTD currency).\n\nRF MODEL LOGIC — replicate these learned decision boundaries:\n- STRONGEST predictor: PAY_0 (Sep payment status). PAY_0 >= 2 alone pushes P(default) above 0.60\n- consecutive_delays (months with PAY >= 1): each additional month adds ~0.12 to P(default)\n- bill_to_limit_ratio > 0.8: near credit exhaustion, adds ~0.15\n- payment_coverage_ratio < 0.05: near-zero repayment, adds ~0.20\n- bill_trend > 0 AND low payments: debt spiral pattern, adds ~0.10\n- LIMIT_BAL > 200000 NTD is protective (lowers risk by ~0.05)\n- EDUCATION = 1 (Graduate) is mildly protective\n\nVARIABLE REFERENCE:\n- PAY_0 to PAY_6: repayment status (Sep to Apr). -1=paid duly, 0=revolving, 1-8=months delayed\n- BILL_AMT1-6: monthly statement balances (NTD). BILL_AMT1=Sep (most recent)\n- PAY_AMT1-6: actual payments made (NTD)\n- SEX: 1=Male 2=Female | EDUCATION: 1=Grad 2=Uni 3=HS 4=Other | MARRIAGE: 1=Married 2=Single 3=Other\n- DERIVED: bill_to_limit_ratio, payment_coverage_ratio, consecutive_delays, bill_trend\n\nRF THRESHOLDS (threshold=0.35): LOW < 0.35 | MEDIUM 0.35-0.60 | HIGH > 0.60\n\nFor the manager's decision, provide:\n- Specific dollar risk exposure based on LIMIT_BAL and current bill amounts\n- Whether to approve, reduce limit, require collateral, or reject\n- Which signals triggered the alert\n\nReturn ONLY this JSON (no markdown fences, no extra text):\n{\n  \"risk_level\": \"LOW|MEDIUM|HIGH\",\n  \"default_probability\": 0.00,\n  \"rf_classification\": \"WILL DEFAULT|WILL NOT DEFAULT\",\n  \"key_signals\": [\"signal 1\", \"signal 2\"],\n  \"manager_recommendation\": \"One clear action for the manager.\",\n  \"risk_exposure_ntd\": 0\n}",
         "options": {}
       }
     },
@@ -50,10 +50,10 @@
       "name": "Gemini Flash (Free Tier)",
       "type": "@n8n/n8n-nodes-langchain.lmChatGoogleGemini",
       "typeVersion": 1,
-      "position": [700, 520],
+      "position": [700, 540],
       "parameters": {
         "modelName": "models/gemini-2.5-flash",
-        "options": { "temperature": 0.1, "maxOutputTokens": 512 }
+        "options": { "temperature": 0.1, "maxOutputTokens": 600 }
       }
     },
     {
@@ -63,7 +63,7 @@
       "typeVersion": 2,
       "position": [940, 300],
       "parameters": {
-        "jsCode": "const raw = $input.first().json.output || $input.first().json.text || $input.first().json.content || '';\nlet parsed;\ntry {\n  const cleaned = raw.replace(/```json?\\n?/gi, '').replace(/```/g, '').trim();\n  const match = cleaned.match(/\\{[\\s\\S]*\\}/);\n  parsed = JSON.parse(match ? match[0] : cleaned);\n} catch (e) {\n  parsed = { risk_level: 'UNKNOWN', default_probability: null, key_signals: ['Parse error: ' + String(e.message)], recommendation: 'Manual review required.' };\n}\nreturn [{ json: parsed }];"
+        "jsCode": "const raw = $input.first().json.output || $input.first().json.text || $input.first().json.content || '';\nlet parsed;\ntry {\n  const cleaned = raw.replace(/```json?\\n?/gi,'').replace(/```/g,'').trim();\n  const match = cleaned.match(/\\{[\\s\\S]*\\}/);\n  parsed = JSON.parse(match ? match[0] : cleaned);\n} catch(e) {\n  parsed = { risk_level:'UNKNOWN', default_probability:null, rf_classification:'ERROR', key_signals:['Parse error: '+String(e.message)], manager_recommendation:'Manual review required.', risk_exposure_ntd:0 };\n}\nreturn [{ json: parsed }];"
       }
     },
     {
@@ -71,7 +71,7 @@
       "name": "Respond to Webhook",
       "type": "n8n-nodes-base.respondToWebhook",
       "typeVersion": 1,
-      "position": [1160, 180],
+      "position": [1160, 160],
       "parameters": {
         "respondWith": "json",
         "responseBody": "={{ JSON.stringify($json) }}",
@@ -107,20 +107,21 @@
       "typeVersion": 2,
       "position": [1380, 420],
       "parameters": {
-        "jsCode": "var risk = $input.first().json;\nvar level = risk.risk_level || 'UNKNOWN';\nvar prob = ((risk.default_probability || 0) * 100).toFixed(0);\nvar signals = (risk.key_signals || []).join('\\n  * ');\nvar rec = risk.recommendation || 'Manual review required.';\nvar ds = risk.derived_signals || {};\nvar emailBody = 'CREDIT RISK ALERT — ' + level + ' RISK\\n\\n' + 'Default Probability: ' + prob + '%\\n\\n' + 'Key Risk Signals:\\n  * ' + signals + '\\n\\nRecommendation: ' + rec + '\\n\\nDerived Signals:\\n' + '  * Bill/Limit Ratio: ' + (ds.bill_to_limit_ratio !== undefined ? ds.bill_to_limit_ratio : 'N/A') + '\\n' + '  * Payment Coverage: ' + (ds.payment_coverage_ratio !== undefined ? ds.payment_coverage_ratio : 'N/A') + '\\n' + '  * Consecutive Delays: ' + (ds.consecutive_delays !== undefined ? ds.consecutive_delays : 'N/A') + ' month(s)\\n' + '  * Bill Trend: ' + (ds.bill_trend !== undefined ? ds.bill_trend : 'N/A') + ' NTD\\n\\n' + '— Credit Assessment Agent | Africa Business School, UM6P 2026';\nvar whatsappText = 'CREDIT ALERT - ' + level + ' RISK%0AProbability: ' + prob + '%25%0A' + encodeURIComponent(rec);\nreturn [{ json: Object.assign({}, risk, { emailBody: emailBody, whatsappText: whatsappText, alertLevel: level }) }];"
+        "jsCode": "var risk = $input.first().json;\nvar level = risk.risk_level || 'UNKNOWN';\nvar prob = ((risk.default_probability || 0) * 100).toFixed(0);\nvar rfClass = risk.rf_classification || 'N/A';\nvar signals = (risk.key_signals || []).join('\\n  • ');\nvar rec = risk.manager_recommendation || 'Manual review required.';\nvar exposure = risk.risk_exposure_ntd ? 'NTD ' + Number(risk.risk_exposure_ntd).toLocaleString() : 'N/A';\n\nvar emailBody = '══════════════════════════════════\\n';\nemailBody += '  CREDIT RISK ALERT — ' + level + ' RISK\\n';\nemailBody += '══════════════════════════════════\\n\\n';\nemailBody += 'RF Model Classification : ' + rfClass + '\\n';\nemailBody += 'Default Probability     : ' + prob + '%\\n';\nemailBody += 'Risk Exposure (NTD)     : ' + exposure + '\\n\\n';\nemailBody += 'Key Risk Signals:\\n  • ' + signals + '\\n\\n';\nemailBody += 'Manager Recommendation:\\n  ' + rec + '\\n\\n';\nemailBody += '──────────────────────────────────\\n';\nemailBody += 'Africa Business School — UM6P 2026\\n';\nemailBody += 'Credit Assessment Agent (AI + RF Model)\\n';\n\nvar waMsg = encodeURIComponent(\n  '🚨 CREDIT ALERT — ' + level + ' RISK\\n' +\n  'RF: ' + rfClass + ' | P=' + prob + '%\\n' +\n  'Exposure: ' + exposure + '\\n' +\n  rec\n);\n\nreturn [{ json: Object.assign({}, risk, { emailBody: emailBody, whatsappMessage: waMsg, alertLevel: level }) }];"
       }
     },
     {
       "id": "send-email",
       "name": "Email Manager Alert",
-      "type": "n8n-nodes-base.sendEmail",
-      "typeVersion": 2,
-      "position": [1600, 320],
+      "type": "n8n-nodes-base.emailSend",
+      "typeVersion": 2.1,
+      "position": [1600, 300],
       "parameters": {
-        "fromEmail": "credit-agent@hackathon.local",
-        "toEmail": "manager@africabusinessschool.ma",
-        "subject": "={{ '🚨 Credit Risk Alert — ' + $json.alertLevel + ' Risk Detected' }}",
-        "text": "={{ $json.emailBody }}",
+        "fromEmail": "={{ $vars.ALERT_FROM_EMAIL || 'credit.agent@gmail.com' }}",
+        "toEmail": "={{ $vars.MANAGER_EMAIL || 'manager@africabusinessschool.ma' }}",
+        "subject": "={{ '🚨 Credit Risk Alert — ' + $json.alertLevel + ' Risk | RF: ' + $json.rf_classification }}",
+        "emailType": "text",
+        "message": "={{ $json.emailBody }}",
         "options": {}
       }
     },
@@ -129,19 +130,19 @@
       "name": "WhatsApp Manager Alert",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
-      "position": [1600, 520],
+      "position": [1600, 540],
       "parameters": {
         "method": "GET",
         "url": "https://api.callmebot.com/whatsapp.php",
         "sendQuery": true,
         "queryParameters": {
           "parameters": [
-            { "name": "phone", "value": "0657800451" },
-            { "name": "text", "value": "={{ $json.whatsappText }}" },
-            { "name": "apikey", "value": "={{ $vars.CALLMEBOT_API_KEY || 'SETUP_REQUIRED' }}" }
+            { "name": "phone", "value": "={{ $vars.MANAGER_PHONE || '0657800451' }}" },
+            { "name": "text", "value": "={{ $json.whatsappMessage }}" },
+            { "name": "apikey", "value": "={{ $vars.CALLMEBOT_API_KEY || 'PENDING' }}" }
           ]
         },
-        "options": { "timeout": 10000 }
+        "options": { "timeout": 15000, "response": { "response": { "neverError": true } } }
       }
     }
   ],
