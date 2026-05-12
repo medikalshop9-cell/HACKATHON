@@ -1,0 +1,2 @@
+model,aic,bic,hqic,cv_logloss,auc_roc,threshold,accuracy,f1,precision,recall
+Logistic Regression,28511.39,29099.24,28710.59,0.5642,0.7626,0.51,0.7891,0.5159,0.5241,0.5079

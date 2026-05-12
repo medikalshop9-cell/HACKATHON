@@ -1,0 +1,2 @@
+model,aic,bic,hqic,cv_logloss,auc_roc,accuracy,f1,precision,recall,threshold
+XGBoost,NA,NA,NA,0.6436,0.7306,0.742,0.4874,0.4347,0.5546,0.45

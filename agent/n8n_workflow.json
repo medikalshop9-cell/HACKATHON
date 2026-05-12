@@ -1,0 +1,104 @@
+﻿{
+  "meta": {
+    "instanceId": "credit-assessment-agent",
+    "note": "Import into n8n at http://localhost:5678. Click the Gemini Flash node and select your Google Gemini API credential. Then activate the workflow."
+  },
+  "nodes": [
+    {
+      "id": "webhook-trigger",
+      "name": "Credit Assessment Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1,
+      "position": [240, 300],
+      "parameters": {
+        "path": "assess-credit",
+        "httpMethod": "POST",
+        "responseMode": "responseNode",
+        "options": {}
+      }
+    },
+    {
+      "id": "validate-normalize",
+      "name": "Validate & Normalize Input",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [460, 300],
+      "parameters": {
+        "jsCode": "const b = $input.first().json.body || $input.first().json;\nconst fields = ['LIMIT_BAL','SEX','EDUCATION','MARRIAGE','AGE','PAY_0','PAY_2','PAY_3','PAY_4','PAY_5','PAY_6','BILL_AMT1','BILL_AMT2','BILL_AMT3','BILL_AMT4','BILL_AMT5','BILL_AMT6','PAY_AMT1','PAY_AMT2','PAY_AMT3','PAY_AMT4','PAY_AMT5','PAY_AMT6'];\nconst out = {};\nfor (const f of fields) out[f] = b[f] ?? null;\nconst lim = Number(out.LIMIT_BAL) || 1;\nout.bill_to_limit_ratio = parseFloat((Number(out.BILL_AMT1) / lim).toFixed(4));\nout.payment_coverage_ratio = out.BILL_AMT1 > 0 ? parseFloat((Number(out.PAY_AMT1) / Number(out.BILL_AMT1)).toFixed(4)) : null;\nout.consecutive_delays = [out.PAY_0, out.PAY_2, out.PAY_3, out.PAY_4, out.PAY_5, out.PAY_6].filter(v => Number(v) >= 1).length;\nout.bill_trend = Number(out.BILL_AMT1) - Number(out.BILL_AMT6);\nreturn [{ json: out }];"
+      }
+    },
+    {
+      "id": "ai-agent",
+      "name": "Credit Risk AI Agent",
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 1,
+      "position": [700, 300],
+      "parameters": {
+        "agentType": "conversationalAgent",
+        "text": "=Assess the default risk for this borrower and return ONLY a JSON object - no markdown, no prose.\n\nBorrower Profile:\n{{ JSON.stringify($json, null, 2) }}",
+        "systemMessage": "You are a credit risk analyst assistant. Assess the default risk of a credit card client based on their profile.\n\nDATASET CONTEXT:\n- Taiwan credit card clients (Apr-Sep 2005), currency: New Taiwan Dollar (NTD)\n- Task: estimate probability of defaulting on next month's payment\n\nVARIABLE GUIDE:\n- LIMIT_BAL: total credit limit in NTD\n- PAY_0 (Sep) to PAY_6 (Apr): repayment status each month. -1=paid duly, 0=revolving credit, 1-8=months delayed\n- BILL_AMT1-6: monthly statement balances in NTD\n- PAY_AMT1-6: actual monthly payments in NTD\n- SEX: 1=Male, 2=Female | EDUCATION: 1=Grad, 2=Uni, 3=HS, 4=Other | MARRIAGE: 1=Married, 2=Single, 3=Other\n\nDERIVED SIGNALS (pre-computed):\n- bill_to_limit_ratio: >0.8 = near credit exhaustion\n- payment_coverage_ratio: <0.05 = near-zero repayment\n- consecutive_delays: months with delay >= 1\n- bill_trend: positive = growing debt\n\nKEY RISK SIGNALS:\n1. consecutive_delays >= 2 -> HIGH risk\n2. bill_to_limit_ratio > 0.8 -> credit exhaustion\n3. payment_coverage_ratio < 0.05 -> minimal repayment\n4. bill_trend > 0 AND payment_coverage_ratio < 0.1 -> debt spiral\n5. PAY_0 >= 2 alone -> strong signal\n\nRISK THRESHOLDS: LOW < 0.30 | MEDIUM 0.30-0.60 | HIGH > 0.60\n\nReturn ONLY valid JSON:\n{\"risk_level\":\"LOW\",\"default_probability\":0.18,\"key_signals\":[\"signal 1\"],\"recommendation\":\"One sentence action.\"}",
+        "options": {}
+      }
+    },
+    {
+      "id": "gemini-model",
+      "name": "Gemini Flash (Free Tier)",
+      "type": "@n8n/n8n-nodes-langchain.lmChatGoogleGemini",
+      "typeVersion": 1,
+      "position": [700, 500],
+      "credentials": {
+        "googlePalmApi": {
+          "id": "gemini-cred-1",
+          "name": "Google Gemini API"
+        }
+      },
+      "parameters": {
+        "modelName": "gemini-2.0-flash",
+        "options": {
+          "temperature": 0.1,
+          "maxOutputTokens": 512
+        }
+      }
+    },
+    {
+      "id": "parse-output",
+      "name": "Parse JSON Output",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [940, 300],
+      "parameters": {
+        "jsCode": "const raw = $input.first().json.output || $input.first().json.text || $input.first().json.content || '';\nlet parsed;\ntry {\n  const cleaned = raw.replace(/```json?\\n?/gi, '').replace(/```/g, '').trim();\n  const match = cleaned.match(/\\{[\\s\\S]*\\}/);\n  parsed = JSON.parse(match ? match[0] : cleaned);\n} catch (e) {\n  parsed = { risk_level: 'UNKNOWN', default_probability: null, key_signals: ['Parse error: ' + String(e.message)], recommendation: 'Manual review required.' };\n}\nreturn [{ json: parsed }];"
+      }
+    },
+    {
+      "id": "respond",
+      "name": "Respond to Webhook",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1,
+      "position": [1160, 300],
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ JSON.stringify($json) }}",
+        "options": { "responseCode": 200 }
+      }
+    }
+  ],
+  "connections": {
+    "Credit Assessment Webhook": {
+      "main": [[{ "node": "Validate & Normalize Input", "type": "main", "index": 0 }]]
+    },
+    "Validate & Normalize Input": {
+      "main": [[{ "node": "Credit Risk AI Agent", "type": "main", "index": 0 }]]
+    },
+    "Credit Risk AI Agent": {
+      "main": [[{ "node": "Parse JSON Output", "type": "main", "index": 0 }]]
+    },
+    "Parse JSON Output": {
+      "main": [[{ "node": "Respond to Webhook", "type": "main", "index": 0 }]]
+    },
+    "Gemini Flash (Free Tier)": {
+      "ai_languageModel": [[{ "node": "Credit Risk AI Agent", "type": "ai_languageModel", "index": 0 }]]
+    }
+  },
+  "settings": { "executionOrder": "v1" }
+}

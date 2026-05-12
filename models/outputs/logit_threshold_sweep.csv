@@ -1,0 +1,7 @@
+threshold,accuracy,recall,precision,f1,specificity,fpr,model
+0.1,0.2487,0.9887,0.226,0.3679,0.0385,0.9615,Logistic Regression
+0.25,0.4308,0.9201,0.2695,0.4169,0.2919,0.7081,Logistic Regression
+0.4,0.7338,0.642,0.4316,0.5162,0.7599,0.2401,Logistic Regression
+0.5499999999999999,0.809,0.4981,0.5793,0.5357,0.8973,0.1027,Logistic Regression
+0.7,0.8215,0.3994,0.6592,0.4974,0.9414,0.0586,Logistic Regression
+0.85,0.8168,0.2924,0.708,0.4139,0.9658,0.0342,Logistic Regression

@@ -1,0 +1,40 @@
+# .gitignore — Credit Assessment Agent
+
+# R session artifacts
+.Rhistory
+.RData
+.Rproj.user/
+*.Rproj
+
+# Large model objects
+models/outputs/*.rds
+
+# Model training plots (regenerated on each run)
+models/outputs/plots/*.png
+
+# Clean dataset (reproducible from raw + 01_data_cleaning.R)
+data/credit_clean.csv
+
+# EDA figures (reproducible from 02_exploratory_analysis.R)
+docs/figures/*.png
+docs/figures/*.jpg
+
+# Credentials / secrets — NEVER commit
+.env
+.env.*
+!.env.example
+*.env
+*_credentials*
+
+# n8n local data (contains DB + credentials)
+agent/n8n_data/
+
+# Node / API dependencies
+api/node_modules/
+node_modules/
+npm-debug.log*
+
+# OS / Editor
+.DS_Store
+Thumbs.db
+.vscode/

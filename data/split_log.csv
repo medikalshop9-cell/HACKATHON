@@ -1,0 +1,4 @@
+split,n_rows,pct_total,default_rate
+train,18001,60,22.12
+validation,6000,20,22.12
+test,5999,20,22.12

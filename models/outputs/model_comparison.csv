@@ -1,0 +1,4 @@
+model,aic,bic,hqic,cv_logloss,auc_roc,threshold,accuracy,f1,precision,recall,rank_aic,rank_bic,rank_hqic,rank_logloss,rank_auc,rank_f1,composite_rank
+Logistic Regression,28511.39,29099.24,28710.59,0.5642,0.7626,0.51,0.7891,0.5159,0.5241,0.5079,1,1,1,2,1,2,1.6666666666666667
+Random Forest,NA,NA,NA,0.3227,0.7618,0.35,0.7956,0.531,0.5392,0.523,NA,NA,NA,1,2,1,1.3333333333333333
+XGBoost,NA,NA,NA,0.6436,0.7306,0.45,0.742,0.4874,0.4347,0.5546,NA,NA,NA,3,3,3,3
