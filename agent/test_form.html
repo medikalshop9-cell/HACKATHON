@@ -1,0 +1,342 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Credit Risk Assessment — Africa Business School</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: 'Segoe UI', sans-serif; background: #0f1117; color: #e1e4e8; min-height: 100vh; }
+  .header { background: linear-gradient(135deg, #1a1f35 0%, #0d1b2a 100%); border-bottom: 1px solid #30363d; padding: 20px 32px; display: flex; align-items: center; gap: 16px; }
+  .header-logo { width: 44px; height: 44px; background: linear-gradient(135deg, #d4a017, #f5c518); border-radius: 8px; display: flex; align-items: center; justify-content: center; font-size: 22px; }
+  .header-text h1 { font-size: 20px; font-weight: 700; color: #f0f6fc; }
+  .header-text p { font-size: 13px; color: #8b949e; }
+  .badge { background: #1f6feb22; border: 1px solid #1f6feb66; color: #58a6ff; padding: 3px 10px; border-radius: 20px; font-size: 11px; font-weight: 600; margin-left: auto; }
+  .container { max-width: 1100px; margin: 0 auto; padding: 28px 20px; }
+  .endpoint-bar { background: #161b22; border: 1px solid #30363d; border-radius: 8px; padding: 12px 16px; margin-bottom: 24px; display: flex; align-items: center; gap: 12px; font-size: 13px; }
+  .method-badge { background: #388bfd22; color: #58a6ff; border: 1px solid #388bfd55; padding: 3px 10px; border-radius: 4px; font-weight: 700; font-size: 12px; }
+  .endpoint-url { color: #7ee787; font-family: monospace; flex: 1; }
+  #urlInput { background: transparent; border: none; color: #7ee787; font-family: monospace; font-size: 13px; width: 100%; outline: none; }
+  .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+  .card { background: #161b22; border: 1px solid #30363d; border-radius: 10px; padding: 20px; }
+  .card h3 { font-size: 13px; font-weight: 600; color: #8b949e; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 16px; display: flex; align-items: center; gap: 8px; }
+  .card h3::before { content: ''; display: block; width: 3px; height: 14px; background: #d4a017; border-radius: 2px; }
+  .field-group { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+  .field { display: flex; flex-direction: column; gap: 5px; }
+  .field label { font-size: 11px; color: #8b949e; font-weight: 600; }
+  .field input, .field select { background: #0d1117; border: 1px solid #30363d; border-radius: 6px; padding: 8px 10px; color: #e1e4e8; font-size: 13px; transition: border-color 0.15s; }
+  .field input:focus, .field select:focus { outline: none; border-color: #388bfd; }
+  .field input.risk-positive { border-color: #f8514966; }
+  .full-span { grid-column: 1 / -1; }
+  .presets { display: flex; gap: 8px; margin-bottom: 20px; }
+  .preset-btn { padding: 8px 16px; border-radius: 6px; border: 1px solid #30363d; cursor: pointer; font-size: 13px; font-weight: 600; transition: all 0.15s; }
+  .preset-high { background: #f851491a; border-color: #f8514966; color: #f85149; }
+  .preset-high:hover { background: #f851492a; }
+  .preset-low { background: #3fb9501a; border-color: #3fb95066; color: #3fb950; }
+  .preset-low:hover { background: #3fb9502a; }
+  .preset-medium { background: #d4a0171a; border-color: #d4a01766; color: #d4a017; }
+  .preset-medium:hover { background: #d4a0172a; }
+  .submit-btn { width: 100%; padding: 14px; background: linear-gradient(135deg, #1f6feb, #388bfd); border: none; border-radius: 8px; color: white; font-size: 15px; font-weight: 700; cursor: pointer; margin-top: 20px; transition: all 0.2s; display: flex; align-items: center; justify-content: center; gap: 10px; }
+  .submit-btn:hover { background: linear-gradient(135deg, #388bfd, #58a6ff); transform: translateY(-1px); }
+  .submit-btn:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
+  .spinner { width: 18px; height: 18px; border: 2px solid #ffffff44; border-top-color: #fff; border-radius: 50%; animation: spin 0.7s linear infinite; display: none; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  .result-panel { background: #161b22; border: 1px solid #30363d; border-radius: 10px; padding: 24px; margin-top: 24px; display: none; }
+  .result-panel.visible { display: block; }
+  .risk-banner { border-radius: 8px; padding: 20px 24px; margin-bottom: 20px; display: flex; align-items: center; gap: 16px; }
+  .risk-HIGH { background: #f851491a; border: 1px solid #f8514966; }
+  .risk-MEDIUM { background: #d4a0171a; border: 1px solid #d4a01766; }
+  .risk-LOW { background: #3fb9501a; border: 1px solid #3fb95066; }
+  .risk-UNKNOWN { background: #8b949e1a; border: 1px solid #8b949e66; }
+  .risk-icon { font-size: 36px; }
+  .risk-details h2 { font-size: 22px; font-weight: 800; }
+  .risk-HIGH .risk-details h2 { color: #f85149; }
+  .risk-MEDIUM .risk-details h2 { color: #d4a017; }
+  .risk-LOW .risk-details h2 { color: #3fb950; }
+  .risk-details p { color: #8b949e; font-size: 14px; margin-top: 4px; }
+  .prob-bar-wrap { flex: 1; }
+  .prob-label { font-size: 12px; color: #8b949e; margin-bottom: 6px; display: flex; justify-content: space-between; }
+  .prob-bar { height: 10px; background: #21262d; border-radius: 5px; overflow: hidden; }
+  .prob-fill { height: 100%; border-radius: 5px; transition: width 0.8s ease; }
+  .prob-fill-HIGH { background: linear-gradient(90deg, #f85149, #ff7b72); }
+  .prob-fill-MEDIUM { background: linear-gradient(90deg, #d4a017, #f0c040); }
+  .prob-fill-LOW { background: linear-gradient(90deg, #3fb950, #56d364); }
+  .result-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+  .result-card { background: #0d1117; border: 1px solid #21262d; border-radius: 8px; padding: 16px; }
+  .result-card h4 { font-size: 11px; color: #8b949e; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 10px; }
+  .signal-list { list-style: none; }
+  .signal-list li { font-size: 13px; padding: 5px 0; border-bottom: 1px solid #21262d; color: #e1e4e8; display: flex; gap: 8px; }
+  .signal-list li::before { content: '▸'; color: #d4a017; flex-shrink: 0; }
+  .signal-list li:last-child { border-bottom: none; }
+  .rf-chip { display: inline-flex; align-items: center; gap: 6px; padding: 6px 14px; border-radius: 20px; font-size: 13px; font-weight: 700; margin-bottom: 8px; }
+  .rf-default { background: #f851491a; border: 1px solid #f8514966; color: #f85149; }
+  .rf-safe { background: #3fb9501a; border: 1px solid #3fb95066; color: #3fb950; }
+  .recommendation-text { font-size: 14px; color: #e1e4e8; line-height: 1.6; }
+  .exposure-value { font-size: 24px; font-weight: 800; color: #f0c040; }
+  .exposure-label { font-size: 12px; color: #8b949e; margin-top: 4px; }
+  .error-banner { background: #f851491a; border: 1px solid #f8514966; border-radius: 8px; padding: 16px; color: #f85149; font-size: 14px; }
+  .error-banner strong { display: block; margin-bottom: 6px; }
+  .raw-toggle { background: none; border: 1px solid #30363d; color: #8b949e; padding: 6px 14px; border-radius: 6px; font-size: 12px; cursor: pointer; margin-top: 16px; }
+  .raw-toggle:hover { color: #e1e4e8; }
+  .raw-output { background: #0d1117; border: 1px solid #21262d; border-radius: 6px; padding: 14px; font-family: monospace; font-size: 12px; color: #7ee787; margin-top: 10px; white-space: pre-wrap; word-break: break-all; display: none; max-height: 300px; overflow-y: auto; }
+  .alert-status { font-size: 12px; color: #8b949e; margin-top: 16px; padding: 10px 14px; background: #0d1117; border-radius: 6px; border: 1px solid #21262d; }
+  @media (max-width: 700px) { .grid, .result-grid, .field-group { grid-template-columns: 1fr; } }
+</style>
+</head>
+<body>
+<div class="header">
+  <div class="header-logo">🏦</div>
+  <div class="header-text">
+    <h1>Credit Risk Assessment Agent</h1>
+    <p>Random Forest Model (AUC=0.762) · Africa Business School, UM6P 2026</p>
+  </div>
+  <div class="badge">n8n + Gemini AI</div>
+</div>
+
+<div class="container">
+  <div class="endpoint-bar">
+    <span class="method-badge">POST</span>
+    <span class="endpoint-url"><input id="urlInput" value="http://localhost:5678/webhook/assess-credit" /></span>
+    <span style="font-size:12px;color:#8b949e;">n8n Webhook URL (change to /webhook-test/ for test mode)</span>
+  </div>
+
+  <div class="presets">
+    <span style="font-size:13px;color:#8b949e;align-self:center;margin-right:4px;">Load preset:</span>
+    <button class="preset-btn preset-high" onclick="loadPreset('high')">🔴 High Risk Borrower</button>
+    <button class="preset-btn preset-medium" onclick="loadPreset('medium')">🟡 Medium Risk Borrower</button>
+    <button class="preset-btn preset-low" onclick="loadPreset('low')">🟢 Low Risk Borrower</button>
+  </div>
+
+  <div class="grid">
+    <div class="card">
+      <h3>Client Demographics</h3>
+      <div class="field-group">
+        <div class="field full-span">
+          <label>LIMIT_BAL — Credit Limit (NTD)</label>
+          <input type="number" id="LIMIT_BAL" value="50000">
+        </div>
+        <div class="field">
+          <label>SEX</label>
+          <select id="SEX"><option value="1">1 – Male</option><option value="2" selected>2 – Female</option></select>
+        </div>
+        <div class="field">
+          <label>AGE</label>
+          <input type="number" id="AGE" value="35">
+        </div>
+        <div class="field">
+          <label>EDUCATION</label>
+          <select id="EDUCATION">
+            <option value="1">1 – Graduate School</option>
+            <option value="2" selected>2 – University</option>
+            <option value="3">3 – High School</option>
+            <option value="4">4 – Other</option>
+          </select>
+        </div>
+        <div class="field">
+          <label>MARRIAGE</label>
+          <select id="MARRIAGE">
+            <option value="1">1 – Married</option>
+            <option value="2" selected>2 – Single</option>
+            <option value="3">3 – Other</option>
+          </select>
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <h3>Repayment Status (PAY) — Delay in Months</h3>
+      <p style="font-size:11px;color:#8b949e;margin-bottom:12px;">-1=paid duly &nbsp;·&nbsp; 0=revolving credit &nbsp;·&nbsp; 1-8=months delayed</p>
+      <div class="field-group">
+        <div class="field"><label>PAY_0 (September ← most recent)</label><input type="number" id="PAY_0" value="2" min="-2" max="8"></div>
+        <div class="field"><label>PAY_2 (August)</label><input type="number" id="PAY_2" value="2" min="-2" max="8"></div>
+        <div class="field"><label>PAY_3 (July)</label><input type="number" id="PAY_3" value="1" min="-2" max="8"></div>
+        <div class="field"><label>PAY_4 (June)</label><input type="number" id="PAY_4" value="0" min="-2" max="8"></div>
+        <div class="field"><label>PAY_5 (May)</label><input type="number" id="PAY_5" value="0" min="-2" max="8"></div>
+        <div class="field"><label>PAY_6 (April)</label><input type="number" id="PAY_6" value="0" min="-2" max="8"></div>
+      </div>
+    </div>
+
+    <div class="card">
+      <h3>Bill Statement Amounts (NTD)</h3>
+      <div class="field-group">
+        <div class="field"><label>BILL_AMT1 (September)</label><input type="number" id="BILL_AMT1" value="45000"></div>
+        <div class="field"><label>BILL_AMT2 (August)</label><input type="number" id="BILL_AMT2" value="43000"></div>
+        <div class="field"><label>BILL_AMT3 (July)</label><input type="number" id="BILL_AMT3" value="41000"></div>
+        <div class="field"><label>BILL_AMT4 (June)</label><input type="number" id="BILL_AMT4" value="39000"></div>
+        <div class="field"><label>BILL_AMT5 (May)</label><input type="number" id="BILL_AMT5" value="37000"></div>
+        <div class="field"><label>BILL_AMT6 (April)</label><input type="number" id="BILL_AMT6" value="35000"></div>
+      </div>
+    </div>
+
+    <div class="card">
+      <h3>Payment Amounts Made (NTD)</h3>
+      <div class="field-group">
+        <div class="field"><label>PAY_AMT1 (September)</label><input type="number" id="PAY_AMT1" value="500"></div>
+        <div class="field"><label>PAY_AMT2 (August)</label><input type="number" id="PAY_AMT2" value="500"></div>
+        <div class="field"><label>PAY_AMT3 (July)</label><input type="number" id="PAY_AMT3" value="500"></div>
+        <div class="field"><label>PAY_AMT4 (June)</label><input type="number" id="PAY_AMT4" value="1000"></div>
+        <div class="field"><label>PAY_AMT5 (May)</label><input type="number" id="PAY_AMT5" value="1000"></div>
+        <div class="field"><label>PAY_AMT6 (April)</label><input type="number" id="PAY_AMT6" value="1000"></div>
+      </div>
+    </div>
+  </div>
+
+  <button class="submit-btn" id="submitBtn" onclick="submitAssessment()">
+    <span id="btnSpinner" class="spinner"></span>
+    <span id="btnText">⚡ Run Credit Assessment</span>
+  </button>
+
+  <div class="result-panel" id="resultPanel">
+    <div id="resultContent"></div>
+    <button class="raw-toggle" onclick="toggleRaw()">Show raw JSON</button>
+    <pre class="raw-output" id="rawOutput"></pre>
+  </div>
+</div>
+
+<script>
+const presets = {
+  high: {
+    LIMIT_BAL:50000, SEX:1, EDUCATION:2, MARRIAGE:1, AGE:35,
+    PAY_0:2, PAY_2:2, PAY_3:1, PAY_4:0, PAY_5:0, PAY_6:0,
+    BILL_AMT1:45000, BILL_AMT2:43000, BILL_AMT3:41000, BILL_AMT4:39000, BILL_AMT5:37000, BILL_AMT6:35000,
+    PAY_AMT1:500, PAY_AMT2:500, PAY_AMT3:500, PAY_AMT4:1000, PAY_AMT5:1000, PAY_AMT6:1000
+  },
+  medium: {
+    LIMIT_BAL:120000, SEX:2, EDUCATION:2, MARRIAGE:2, AGE:28,
+    PAY_0:1, PAY_2:0, PAY_3:0, PAY_4:-1, PAY_5:-1, PAY_6:-1,
+    BILL_AMT1:85000, BILL_AMT2:80000, BILL_AMT3:76000, BILL_AMT4:72000, BILL_AMT5:68000, BILL_AMT6:65000,
+    PAY_AMT1:3000, PAY_AMT2:2500, PAY_AMT3:2000, PAY_AMT4:5000, PAY_AMT5:5000, PAY_AMT6:5000
+  },
+  low: {
+    LIMIT_BAL:300000, SEX:2, EDUCATION:1, MARRIAGE:2, AGE:42,
+    PAY_0:-1, PAY_2:-1, PAY_3:-1, PAY_4:-1, PAY_5:-1, PAY_6:-1,
+    BILL_AMT1:50000, BILL_AMT2:48000, BILL_AMT3:46000, BILL_AMT4:44000, BILL_AMT5:42000, BILL_AMT6:40000,
+    PAY_AMT1:50000, PAY_AMT2:48000, PAY_AMT3:46000, PAY_AMT4:44000, PAY_AMT5:42000, PAY_AMT6:40000
+  }
+};
+
+function loadPreset(type) {
+  const p = presets[type];
+  Object.keys(p).forEach(k => { const el = document.getElementById(k); if (el) el.value = p[k]; });
+}
+
+function getFormData() {
+  const fields = ['LIMIT_BAL','SEX','EDUCATION','MARRIAGE','AGE','PAY_0','PAY_2','PAY_3','PAY_4','PAY_5','PAY_6',
+    'BILL_AMT1','BILL_AMT2','BILL_AMT3','BILL_AMT4','BILL_AMT5','BILL_AMT6',
+    'PAY_AMT1','PAY_AMT2','PAY_AMT3','PAY_AMT4','PAY_AMT5','PAY_AMT6'];
+  const data = {};
+  fields.forEach(f => { data[f] = Number(document.getElementById(f).value) || 0; });
+  return data;
+}
+
+async function submitAssessment() {
+  const btn = document.getElementById('submitBtn');
+  const spinner = document.getElementById('btnSpinner');
+  const btnText = document.getElementById('btnText');
+  const url = document.getElementById('urlInput').value.trim();
+
+  btn.disabled = true;
+  spinner.style.display = 'block';
+  btnText.textContent = 'Analyzing…';
+
+  const panel = document.getElementById('resultPanel');
+  panel.classList.remove('visible');
+
+  try {
+    const resp = await fetch(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(getFormData())
+    });
+
+    let data;
+    const text = await resp.text();
+    try { data = JSON.parse(text); } catch { data = { risk_level: 'UNKNOWN', raw: text }; }
+
+    renderResult(data);
+    document.getElementById('rawOutput').textContent = JSON.stringify(data, null, 2);
+  } catch (err) {
+    renderError(err);
+  } finally {
+    btn.disabled = false;
+    spinner.style.display = 'none';
+    btnText.textContent = '⚡ Run Credit Assessment';
+  }
+}
+
+function renderResult(data) {
+  const panel = document.getElementById('resultPanel');
+  const content = document.getElementById('resultContent');
+  const level = (data.risk_level || 'UNKNOWN').toUpperCase();
+  const prob = data.default_probability != null ? (data.default_probability * 100).toFixed(1) : null;
+  const rfClass = data.rf_classification || '';
+  const signals = data.key_signals || [];
+  const rec = data.manager_recommendation || data.recommendation || '';
+  const exposure = data.risk_exposure_ntd ? 'NTD ' + Number(data.risk_exposure_ntd).toLocaleString() : null;
+  const icons = { HIGH: '🚨', MEDIUM: '⚠️', LOW: '✅', UNKNOWN: '❓' };
+
+  const isDefault = rfClass.toLowerCase().includes('will default') && !rfClass.toLowerCase().includes('not');
+  const rfChipClass = isDefault ? 'rf-default' : 'rf-safe';
+  const rfIcon = isDefault ? '⛔' : '✔';
+
+  let html = `<div class="risk-banner risk-${level}">
+    <div class="risk-icon">${icons[level] || '❓'}</div>
+    <div class="risk-details">
+      <h2>${level} RISK</h2>
+      <p>AI + Random Forest Assessment · Africa Business School 2026</p>
+    </div>
+    ${prob != null ? `<div class="prob-bar-wrap">
+      <div class="prob-label"><span>Default Probability</span><span><strong style="color:#f0c040">${prob}%</strong></span></div>
+      <div class="prob-bar"><div class="prob-fill prob-fill-${level}" style="width:${Math.min(prob,100)}%"></div></div>
+    </div>` : ''}
+  </div>
+  <div class="result-grid">
+    ${rfClass ? `<div class="result-card">
+      <h4>RF Model Classification</h4>
+      <div class="rf-chip ${rfChipClass}">${rfIcon} ${rfClass}</div>
+      <p style="font-size:12px;color:#8b949e;margin-top:8px;">Based on Random Forest trained on 30,000 UCI Taiwan credit card clients. Threshold = 0.35.</p>
+    </div>` : ''}
+    ${exposure ? `<div class="result-card">
+      <h4>Risk Exposure</h4>
+      <div class="exposure-value">${exposure}</div>
+      <div class="exposure-label">Maximum potential loss if default occurs</div>
+    </div>` : ''}
+    ${signals.length ? `<div class="result-card ${!exposure ? 'full-span' : ''}">
+      <h4>Key Risk Signals Detected</h4>
+      <ul class="signal-list">${signals.map(s => `<li>${s}</li>`).join('')}</ul>
+    </div>` : ''}
+    ${rec ? `<div class="result-card full-span">
+      <h4>Manager Recommendation</h4>
+      <div class="recommendation-text">${rec}</div>
+    </div>` : ''}
+  </div>
+  <div class="alert-status">
+    ${level !== 'LOW' ? '📧 Alert triggered → Email + WhatsApp sent to manager (if credentials configured in n8n)' : '✅ LOW risk — no manager alert triggered.'}
+  </div>`;
+
+  content.innerHTML = html;
+  panel.classList.add('visible');
+}
+
+function renderError(err) {
+  const panel = document.getElementById('resultPanel');
+  const content = document.getElementById('resultContent');
+  content.innerHTML = `<div class="error-banner">
+    <strong>❌ Could not reach n8n</strong>
+    <p>${err.message}</p>
+    <ul style="margin-top:10px;padding-left:18px;font-size:13px;line-height:2">
+      <li>Make sure n8n is running: <code>$env:Path += ";C:\\Users\\ayhin\\AppData\\Roaming\\npm"; n8n start</code></li>
+      <li>Make sure the workflow is <strong>imported and ACTIVATED</strong> (blue toggle top-right in n8n)</li>
+      <li>For testing without activating: change URL above to <code>http://localhost:5678/webhook-test/assess-credit</code> and click <strong>Listen for test event</strong> in n8n first</li>
+    </ul>
+  </div>`;
+  panel.classList.add('visible');
+}
+
+function toggleRaw() {
+  const raw = document.getElementById('rawOutput');
+  raw.style.display = raw.style.display === 'block' ? 'none' : 'block';
+}
+</script>
+</body>
+</html>

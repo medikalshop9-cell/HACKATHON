@@ -115,6 +115,7 @@
       "name": "Email Manager Alert",
       "type": "n8n-nodes-base.emailSend",
       "typeVersion": 2.1,
+      "continueOnFail": true,
       "position": [1600, 300],
       "parameters": {
         "fromEmail": "={{ $vars.ALERT_FROM_EMAIL || 'credit.agent@gmail.com' }}",
@@ -130,6 +131,7 @@
       "name": "WhatsApp Manager Alert",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
+      "continueOnFail": true,
       "position": [1600, 540],
       "parameters": {
         "method": "GET",
