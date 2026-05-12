@@ -1,8 +1,5 @@
 ﻿{
-  "meta": {
-    "instanceId": "credit-assessment-agent",
-    "note": "Import into n8n at http://localhost:5678. Click the Gemini Flash node and select your Google Gemini API credential. Then activate the workflow."
-  },
+  "meta": { "instanceId": "credit-assessment-agent" },
   "nodes": [
     {
       "id": "webhook-trigger",
@@ -28,6 +25,14 @@
       }
     },
     {
+      "id": "session-memory",
+      "name": "Session Memory",
+      "type": "@n8n/n8n-nodes-langchain.memoryBufferWindow",
+      "typeVersion": 1.3,
+      "position": [460, 520],
+      "parameters": { "contextWindowLength": 10 }
+    },
+    {
       "id": "ai-agent",
       "name": "Credit Risk AI Agent",
       "type": "@n8n/n8n-nodes-langchain.agent",
@@ -36,7 +41,7 @@
       "parameters": {
         "agentType": "conversationalAgent",
         "text": "=Assess the default risk for this borrower and return ONLY a JSON object - no markdown, no prose.\n\nBorrower Profile:\n{{ JSON.stringify($json, null, 2) }}",
-        "systemMessage": "You are a credit risk analyst assistant. Assess the default risk of a credit card client based on their profile.\n\nDATASET CONTEXT:\n- Taiwan credit card clients (Apr-Sep 2005), currency: New Taiwan Dollar (NTD)\n- Task: estimate probability of defaulting on next month's payment\n\nVARIABLE GUIDE:\n- LIMIT_BAL: total credit limit in NTD\n- PAY_0 (Sep) to PAY_6 (Apr): repayment status each month. -1=paid duly, 0=revolving credit, 1-8=months delayed\n- BILL_AMT1-6: monthly statement balances in NTD\n- PAY_AMT1-6: actual monthly payments in NTD\n- SEX: 1=Male, 2=Female | EDUCATION: 1=Grad, 2=Uni, 3=HS, 4=Other | MARRIAGE: 1=Married, 2=Single, 3=Other\n\nDERIVED SIGNALS (pre-computed):\n- bill_to_limit_ratio: >0.8 = near credit exhaustion\n- payment_coverage_ratio: <0.05 = near-zero repayment\n- consecutive_delays: months with delay >= 1\n- bill_trend: positive = growing debt\n\nKEY RISK SIGNALS:\n1. consecutive_delays >= 2 -> HIGH risk\n2. bill_to_limit_ratio > 0.8 -> credit exhaustion\n3. payment_coverage_ratio < 0.05 -> minimal repayment\n4. bill_trend > 0 AND payment_coverage_ratio < 0.1 -> debt spiral\n5. PAY_0 >= 2 alone -> strong signal\n\nRISK THRESHOLDS: LOW < 0.30 | MEDIUM 0.30-0.60 | HIGH > 0.60\n\nReturn ONLY valid JSON:\n{\"risk_level\":\"LOW\",\"default_probability\":0.18,\"key_signals\":[\"signal 1\"],\"recommendation\":\"One sentence action.\"}",
+        "systemMessage": "You are a credit risk analyst assistant. Assess the default risk of a credit card client based on their profile.\n\nDATASET CONTEXT:\n- Taiwan credit card clients (Apr-Sep 2005), currency: New Taiwan Dollar (NTD)\n- Task: estimate probability of defaulting on next month's payment\n\nVARIABLE GUIDE:\n- LIMIT_BAL: total credit limit in NTD\n- PAY_0 (Sep) to PAY_6 (Apr): repayment status. -1=paid duly, 0=revolving credit, 1-8=months delayed\n- BILL_AMT1-6: monthly statement balances in NTD\n- PAY_AMT1-6: actual monthly payments in NTD\n- SEX: 1=Male, 2=Female | EDUCATION: 1=Grad, 2=Uni, 3=HS, 4=Other | MARRIAGE: 1=Married, 2=Single, 3=Other\n\nDERIVED SIGNALS (pre-computed):\n- bill_to_limit_ratio: >0.8 = near credit exhaustion\n- payment_coverage_ratio: <0.05 = near-zero repayment\n- consecutive_delays: months with delay >= 1\n- bill_trend: positive = growing debt\n\nKEY RISK SIGNALS:\n1. consecutive_delays >= 2 -> HIGH risk\n2. bill_to_limit_ratio > 0.8 -> credit exhaustion\n3. payment_coverage_ratio < 0.05 -> minimal repayment\n4. bill_trend > 0 AND payment_coverage_ratio < 0.1 -> debt spiral\n5. PAY_0 >= 2 alone -> strong signal\n\nRISK THRESHOLDS: LOW < 0.30 | MEDIUM 0.30-0.60 | HIGH > 0.60\n\nReturn ONLY valid JSON:\n{\"risk_level\":\"LOW\",\"default_probability\":0.18,\"key_signals\":[\"signal 1\"],\"recommendation\":\"One sentence action.\"}",
         "options": {}
       }
     },
@@ -45,19 +50,10 @@
       "name": "Gemini Flash (Free Tier)",
       "type": "@n8n/n8n-nodes-langchain.lmChatGoogleGemini",
       "typeVersion": 1,
-      "position": [700, 500],
-      "credentials": {
-        "googlePalmApi": {
-          "id": "gemini-cred-1",
-          "name": "Google Gemini API"
-        }
-      },
+      "position": [700, 520],
       "parameters": {
-        "modelName": "gemini-2.0-flash",
-        "options": {
-          "temperature": 0.1,
-          "maxOutputTokens": 512
-        }
+        "modelName": "models/gemini-2.5-flash",
+        "options": { "temperature": 0.1, "maxOutputTokens": 512 }
       }
     },
     {
@@ -75,11 +71,77 @@
       "name": "Respond to Webhook",
       "type": "n8n-nodes-base.respondToWebhook",
       "typeVersion": 1,
-      "position": [1160, 300],
+      "position": [1160, 180],
       "parameters": {
         "respondWith": "json",
         "responseBody": "={{ JSON.stringify($json) }}",
         "options": { "responseCode": 200 }
+      }
+    },
+    {
+      "id": "risk-router",
+      "name": "High Risk Alert?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [1160, 420],
+      "parameters": {
+        "conditions": {
+          "options": { "caseSensitive": false, "typeValidation": "loose" },
+          "conditions": [
+            {
+              "id": "cond-risk",
+              "leftValue": "={{ $json.risk_level }}",
+              "rightValue": "LOW",
+              "operator": { "type": "string", "operation": "notEquals" }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      }
+    },
+    {
+      "id": "format-alert",
+      "name": "Format Manager Alert",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1380, 420],
+      "parameters": {
+        "jsCode": "var risk = $input.first().json;\nvar level = risk.risk_level || 'UNKNOWN';\nvar prob = ((risk.default_probability || 0) * 100).toFixed(0);\nvar signals = (risk.key_signals || []).join('\\n  * ');\nvar rec = risk.recommendation || 'Manual review required.';\nvar ds = risk.derived_signals || {};\nvar emailBody = 'CREDIT RISK ALERT — ' + level + ' RISK\\n\\n' + 'Default Probability: ' + prob + '%\\n\\n' + 'Key Risk Signals:\\n  * ' + signals + '\\n\\nRecommendation: ' + rec + '\\n\\nDerived Signals:\\n' + '  * Bill/Limit Ratio: ' + (ds.bill_to_limit_ratio !== undefined ? ds.bill_to_limit_ratio : 'N/A') + '\\n' + '  * Payment Coverage: ' + (ds.payment_coverage_ratio !== undefined ? ds.payment_coverage_ratio : 'N/A') + '\\n' + '  * Consecutive Delays: ' + (ds.consecutive_delays !== undefined ? ds.consecutive_delays : 'N/A') + ' month(s)\\n' + '  * Bill Trend: ' + (ds.bill_trend !== undefined ? ds.bill_trend : 'N/A') + ' NTD\\n\\n' + '— Credit Assessment Agent | Africa Business School, UM6P 2026';\nvar whatsappText = 'CREDIT ALERT - ' + level + ' RISK%0AProbability: ' + prob + '%25%0A' + encodeURIComponent(rec);\nreturn [{ json: Object.assign({}, risk, { emailBody: emailBody, whatsappText: whatsappText, alertLevel: level }) }];"
+      }
+    },
+    {
+      "id": "send-email",
+      "name": "Email Manager Alert",
+      "type": "n8n-nodes-base.sendEmail",
+      "typeVersion": 2,
+      "position": [1600, 320],
+      "parameters": {
+        "fromEmail": "credit-agent@hackathon.local",
+        "toEmail": "manager@africabusinessschool.ma",
+        "subject": "={{ '🚨 Credit Risk Alert — ' + $json.alertLevel + ' Risk Detected' }}",
+        "text": "={{ $json.emailBody }}",
+        "options": {}
+      }
+    },
+    {
+      "id": "whatsapp-alert",
+      "name": "WhatsApp Manager Alert",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [1600, 520],
+      "parameters": {
+        "method": "GET",
+        "url": "https://api.callmebot.com/whatsapp.php",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            { "name": "phone", "value": "0657800451" },
+            { "name": "text", "value": "={{ $json.whatsappText }}" },
+            { "name": "apikey", "value": "={{ $vars.CALLMEBOT_API_KEY || 'SETUP_REQUIRED' }}" }
+          ]
+        },
+        "options": { "timeout": 10000 }
       }
     }
   ],
@@ -94,10 +156,28 @@
       "main": [[{ "node": "Parse JSON Output", "type": "main", "index": 0 }]]
     },
     "Parse JSON Output": {
-      "main": [[{ "node": "Respond to Webhook", "type": "main", "index": 0 }]]
+      "main": [[
+        { "node": "Respond to Webhook", "type": "main", "index": 0 },
+        { "node": "High Risk Alert?", "type": "main", "index": 0 }
+      ]]
+    },
+    "High Risk Alert?": {
+      "main": [
+        [{ "node": "Format Manager Alert", "type": "main", "index": 0 }],
+        []
+      ]
+    },
+    "Format Manager Alert": {
+      "main": [[
+        { "node": "Email Manager Alert", "type": "main", "index": 0 },
+        { "node": "WhatsApp Manager Alert", "type": "main", "index": 0 }
+      ]]
     },
     "Gemini Flash (Free Tier)": {
       "ai_languageModel": [[{ "node": "Credit Risk AI Agent", "type": "ai_languageModel", "index": 0 }]]
+    },
+    "Session Memory": {
+      "ai_memory": [[{ "node": "Credit Risk AI Agent", "type": "ai_memory", "index": 0 }]]
     }
   },
   "settings": { "executionOrder": "v1" }
